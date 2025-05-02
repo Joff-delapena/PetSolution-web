@@ -1,22 +1,26 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
-import { useCart } from "../context/CartContext";
 import Footer from "../components/Footer";
+import { useCart } from "../context/CartContext";
 
 const Cart = () => {
-  const { cart, removeFromCart, decreaseQuantity, addToCart } = useCart();
+  const {
+    cartItems,
+    removeFromCart,
+    updateQuantity,
+    checkout,
+  } = useCart();
   const navigate = useNavigate();
   const [selectedItems, setSelectedItems] = useState([]);
 
   const isSelected = (id) => selectedItems.includes(id);
 
-  // Select All toggle
   const toggleSelectAll = () => {
-    if (selectedItems.length === cart.length) {
-      setSelectedItems([]); // Deselect all
+    if (selectedItems.length === cartItems.length) {
+      setSelectedItems([]);
     } else {
-      setSelectedItems(cart.map((item) => item.id)); // Select all
+      setSelectedItems(cartItems.map((item) => item.id));
     }
   };
 
@@ -33,24 +37,18 @@ const Cart = () => {
 
   const handleQuantityChange = (item, action) => {
     if (action === "increase") {
-      addToCart({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        image: item.image,
-        images: item.images,
-      });
+      updateQuantity(item.id, 1);
     } else if (action === "decrease") {
-      decreaseQuantity(item.id);
+      updateQuantity(item.id, -1);
     }
   };
 
-  const selectedTotal = cart
+  const selectedTotal = cartItems
     .filter((item) => selectedItems.includes(item.id))
     .reduce((total, item) => total + item.price * item.quantity, 0);
 
   const handleCheckout = () => {
-    const selectedCartItems = cart.filter((item) =>
+    const selectedCartItems = cartItems.filter((item) =>
       selectedItems.includes(item.id)
     );
     localStorage.setItem("selectedCartItems", JSON.stringify(selectedCartItems));
@@ -67,11 +65,13 @@ const Cart = () => {
             Your Shopping Cart
           </h1>
           <p className="mt-2 text-lg text-gray-600">
-            {cart.length === 0 ? "Your cart is empty. Start shopping now!" : `${cart.length} item(s) in your cart`}
+            {cartItems.length === 0
+              ? "Your cart is empty. Start shopping now!"
+              : `${cartItems.length} item(s) in your cart`}
           </p>
         </div>
 
-        {cart.length === 0 ? (
+        {cartItems.length === 0 ? (
           <div className="text-center">
             <img
               src="/images/empty-cart.png"
@@ -90,18 +90,17 @@ const Cart = () => {
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
-            {/* Select All Checkbox */}
             <div className="flex items-center gap-3 mb-4">
               <input
                 type="checkbox"
-                checked={selectedItems.length === cart.length}
+                checked={selectedItems.length === cartItems.length}
                 onChange={toggleSelectAll}
                 className="w-5 h-5 accent-[#FF9500]"
               />
               <span className="text-gray-700 font-medium">Select All</span>
             </div>
 
-            {cart.map((item) => (
+            {cartItems.map((item) => (
               <div
                 key={item.id}
                 className="grid grid-cols-1 sm:grid-cols-6 items-center gap-6 border-b pb-6"
@@ -144,7 +143,7 @@ const Cart = () => {
                   </button>
                 </div>
 
-                <div className="sm:col-span-1 text-right">
+                <div className="sm:col-span-5 text-right">
                   <p className="text-lg font-semibold text-[#FF9500]">
                     ₱{(item.price * item.quantity).toFixed(2)}
                   </p>
