@@ -1,17 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  addDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "../firebase";
-import { useCart } from "../context/CartContext";
+import { useCart } from "../Context/CartContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { getAuth } from "firebase/auth";
 
 const Payment = () => {
   const navigate = useNavigate();
-  const { removeFromCart, clearCart } = useCart();
+  const { removeFromCart } = useCart();
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("creditCard");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const auth = getAuth();
 
   useEffect(() => {
     const stored = localStorage.getItem("selectedCartItems");
@@ -22,40 +31,99 @@ const Payment = () => {
     checkoutItems.reduce((sum, i) => sum + i.price * i.quantity, 0).toFixed(2);
 
   const paymentMethods = [
-    { id: "creditCard", label: "Credit Card", desc: "Visa, MasterCard, etc." },
-    { id: "paypal",    label: "PayPal",      desc: "Pay securely with PayPal" },
-    { id: "gcash",     label: "GCash",       desc: "Pay using your GCash account" },
-    { id: "cod",       label: "COD",         desc: "Cash on Delivery" },
+    { id: "gcash", label: "GCash", desc: "GCash is not available at the moment." },
+    { id: "cod", label: "COD", desc: "Cash on Delivery" },
   ];
 
+  // Optional: Force login before paying (uncomment to enforce)
+  // if (!auth.currentUser) {
+  //   navigate("/login");
+  //   return null;
+  // }
+
   const handleConfirm = async () => {
+    if (!paymentMethod) {
+      alert("Please select a payment method.");
+      return;
+    }
+
     setIsProcessing(true);
 
+    if (paymentMethod === "gcash") {
+      alert("GCash payment is not available at the moment.");
+      setIsProcessing(false);
+      return;
+    }
+
     try {
-      // 1. Update Firestore stock
+      // 1. Check stock and update Firestore stock quantities
       for (const item of checkoutItems) {
         const ref = doc(db, "products", item.id);
         const snap = await getDoc(ref);
-        const current = snap.exists() ? snap.data().quantity || 0 : 0;
+        const currentStock = snap.exists() ? snap.data().quantity || 0 : 0;
 
-        if (current < item.quantity) {
-          alert(`Not enough stock for "${item.name}"`);
+        if (currentStock < item.quantity) {
+          alert(`Not enough stock for "${item.name}". Available: ${currentStock}`);
           setIsProcessing(false);
           return;
         }
-        await updateDoc(ref, { quantity: current - item.quantity });
+        await updateDoc(ref, { quantity: currentStock - item.quantity });
       }
 
-      // 2. Remove from cart context
+      // Prepare order items array for saving
+      const orderItems = checkoutItems.map(({ id, name, price, quantity, image }) => ({
+        id,
+        name,
+        price,
+        quantity,
+        image: image || "",
+      }));
+
+      // 2. Save order to Firestore "orders" collection
+      const orderRef = await addDoc(collection(db, "orders"), {
+        items: orderItems,
+        total: Number(getTotal()),
+        status: "Pending",
+        paymentMethod,
+        timestamp: serverTimestamp(),
+        userId: auth.currentUser ? auth.currentUser.uid : null,
+      });
+
+      // 3. Save purchase history to Firestore "purchaseHistory" collection for authenticated users
+      if (auth.currentUser) {
+        await addDoc(collection(db, "purchaseHistory"), {
+          userId: auth.currentUser.uid,
+          orderId: orderRef.id,
+          items: orderItems,
+          total: Number(getTotal()),
+          paymentMethod,
+          status: "Pending", // IMPORTANT: keep status for filtering in PurchaseHistory page
+          timestamp: serverTimestamp(),
+        });
+      } else {
+        // Optional: For unauthenticated users, save to localStorage or redirect to login
+        // Here is example saving locally (you may want to improve this or force login)
+        const existingHistory = JSON.parse(localStorage.getItem("purchaseHistory")) || [];
+        existingHistory.push({
+          orderId: orderRef.id,
+          items: orderItems,
+          total: Number(getTotal()),
+          paymentMethod,
+          status: "Pending",
+          timestamp: new Date().toISOString(),
+        });
+        localStorage.setItem("purchaseHistory", JSON.stringify(existingHistory));
+      }
+
+      // 4. Remove purchased items from cart and clear selectedCartItems in localStorage
       checkoutItems.forEach((item) => removeFromCart(item.id));
-      // 3. Clear localStorage
       localStorage.removeItem("selectedCartItems");
-      // (optional) clear entire cart: clearCart();
-      // 4. Navigate to Thank You
+
+      // 5. Navigate to Thank You page
       navigate("/thankyou");
-    } catch (err) {
-      console.error(err);
-      alert("Payment processing failed.");
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      alert("Payment processing failed. Please try again.");
       setIsProcessing(false);
     }
   };
@@ -116,7 +184,13 @@ const Payment = () => {
                     }`}
                   >
                     <h4 className="font-medium">{m.label}</h4>
-                    <p className="text-sm text-gray-500">{m.desc}</p>
+                    <p
+                      className={`text-sm ${
+                        m.id === "gcash" ? "text-red-500" : "text-gray-500"
+                      }`}
+                    >
+                      {m.desc}
+                    </p>
                   </div>
                 ))}
               </div>

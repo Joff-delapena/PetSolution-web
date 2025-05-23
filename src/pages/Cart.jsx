@@ -2,17 +2,15 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { useCart } from "../context/CartContext";
+import { useCart } from "../Context/CartContext";
+import { useAuth } from "../Context/AuthContext";
 
 const Cart = () => {
-  const {
-    cartItems,
-    removeFromCart,
-    updateQuantity,
-    checkout,
-  } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, checkout } = useCart();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [selectedItems, setSelectedItems] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const isSelected = (id) => selectedItems.includes(id);
 
@@ -47,28 +45,50 @@ const Cart = () => {
     .filter((item) => selectedItems.includes(item.id))
     .reduce((total, item) => total + item.price * item.quantity, 0);
 
-  const handleCheckout = () => {
-    const selectedCartItems = cartItems.filter((item) =>
-      selectedItems.includes(item.id)
-    );
-    localStorage.setItem("selectedCartItems", JSON.stringify(selectedCartItems));
-    navigate("/payment");
+  const handleCheckout = async () => {
+    if (!currentUser) {
+      alert("Please sign in to checkout.");
+      return;
+    }
+    if (selectedItems.length === 0) {
+      alert("Please select at least one item.");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Call checkout from context - it handles order creation, stock update, cart update
+      await checkout(selectedItems);
+
+      // Save selected items locally if needed (for payment page)
+      const selectedCartItems = cartItems.filter((item) =>
+        selectedItems.includes(item.id)
+      );
+      localStorage.setItem("selectedCartItems", JSON.stringify(selectedCartItems));
+
+      // Navigate to payment page
+      navigate("/payment");
+    } catch (error) {
+      console.error("Checkout failed:", error);
+      alert("Failed to place order. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
       <Header />
-
       <div className="max-w-7xl mx-auto p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-extrabold text-[#FF9500]">
-            Your Shopping Cart
-          </h1>
-          <p className="mt-2 text-lg text-gray-600">
-            {cartItems.length === 0
-              ? "Your cart is empty. Start shopping now!"
-              : `${cartItems.length} item(s) in your cart`}
-          </p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-5xl font-extrabold text-[#FF9500]">Your Shopping Cart</h1>
+            <p className="mt-2 text-lg text-gray-600">
+              {cartItems.length === 0
+                ? "Your cart is empty. Start shopping now!"
+                : `${cartItems.length} item(s) in your cart`}
+            </p>
+          </div>
         </div>
 
         {cartItems.length === 0 ? (
@@ -164,17 +184,16 @@ const Cart = () => {
                 </p>
                 <button
                   className="bg-green-500 text-white text-lg px-8 py-3 rounded-lg hover:bg-green-600 transition-all disabled:opacity-50"
-                  disabled={selectedItems.length === 0}
+                  disabled={selectedItems.length === 0 || isProcessing}
                   onClick={handleCheckout}
                 >
-                  Proceed to Checkout
+                  {isProcessing ? "Processing..." : "Proceed to Checkout"}
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
-
       <Footer />
     </div>
   );
