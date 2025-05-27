@@ -1,8 +1,10 @@
+// src/Admin/Admin.jsx
 import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
 import AdminProductSection from "../Admin/Product";
 import Users from "./Users";
 import AdminOrders from "./AdminOrders";
+import OutOfStockProducts from "../Admin/OutOfStock";
 import {
   collection,
   getDocs,
@@ -23,7 +25,7 @@ const sidebarItems = [
   { id: "products", label: "Products" },
   { id: "users", label: "Users" },
   { id: "orders", label: "Orders" },
-  { id: "Feedback", label: "Feedback" },
+  { id: "outOfStock", label: "Out of Stock" },
 ];
 
 const Admin = () => {
@@ -41,7 +43,6 @@ const Admin = () => {
     image: "",
   });
 
-  // Fetch products from Firestore
   const fetchProducts = async () => {
     try {
       const snapshot = await getDocs(collection(db, "products"));
@@ -56,7 +57,6 @@ const Admin = () => {
     }
   };
 
-  // Subscribe to users who are currently logged in (isOnline == true)
   const fetchLoggedInUsers = () => {
     const q = query(collection(db, "users"), where("isOnline", "==", true));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -78,12 +78,10 @@ const Admin = () => {
 
   const handleLogout = async () => {
     try {
-      // OPTIONAL: Update user status before signing out
       if (auth.currentUser) {
         const userRef = doc(db, "users", auth.currentUser.uid);
         await updateDoc(userRef, { isOnline: false, lastActive: serverTimestamp() });
       }
-
       await signOut(auth);
       window.location.href = "/";
     } catch (error) {
@@ -93,7 +91,6 @@ const Admin = () => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 bg-[#FF9500] text-white w-64 p-6 flex flex-col justify-between transform transition-transform duration-300 z-50
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
@@ -116,7 +113,6 @@ const Admin = () => {
             </ul>
           </nav>
         </div>
-
         <div>
           <button
             onClick={handleLogout}
@@ -127,9 +123,7 @@ const Admin = () => {
         </div>
       </aside>
 
-      {/* Main content wrapper */}
       <div className="flex-1 flex flex-col md:ml-64">
-        {/* Header */}
         <header className="flex items-center justify-between bg-white shadow px-6 py-4 sticky top-0 z-10">
           <button
             className="md:hidden text-[#FF9500]"
@@ -144,28 +138,23 @@ const Admin = () => {
           <div></div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 overflow-auto p-8">
           {activeSection === "dashboard" && (
             <section>
               <h2 className="text-3xl font-extrabold text-[#FF9500] mb-8">Dashboard Overview</h2>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
                 <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
                   <p className="text-lg font-semibold text-gray-600 mb-2">Total Products</p>
                   <p className="text-4xl font-bold text-[#FF9500]">{totalProducts}</p>
                 </div>
-
                 <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
                   <p className="text-lg font-semibold text-gray-600 mb-2">Out of Stock</p>
                   <p className="text-4xl font-bold text-red-600">{outOfStock}</p>
                 </div>
-
                 <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
                   <p className="text-lg font-semibold text-gray-600 mb-2">Users Logged In</p>
                   <p className="text-4xl font-bold text-green-600">{loggedInUsers.length}</p>
                 </div>
-
                 <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
                   <p className="text-lg font-semibold text-gray-600 mb-2">Total Stock</p>
                   <p className="text-4xl font-bold text-purple-600">{totalStock}</p>
@@ -184,12 +173,10 @@ const Admin = () => {
               handleAddProduct={async (e) => {
                 e.preventDefault();
                 const { name, price, quantity, description, category, image } = newProduct;
-
                 if (!name || !price || !quantity || !description || !category || !image) {
                   alert("Please fill in all fields.");
                   return;
                 }
-
                 try {
                   await addDoc(collection(db, "products"), {
                     name,
@@ -218,13 +205,10 @@ const Admin = () => {
               handleQuantityChange={async (id, e) => {
                 const { value } = e.target;
                 if (isNaN(value) || value < 0) return;
-
                 const updatedProducts = products.map((product) =>
                   product.id === id ? { ...product, quantity: parseInt(value) } : product
                 );
-
                 setProducts(updatedProducts);
-
                 const product = updatedProducts.find((product) => product.id === id);
                 if (product) {
                   const productRef = doc(db, "products", id);
@@ -247,17 +231,9 @@ const Admin = () => {
             />
           )}
 
-          {/* Pass loggedInUsers here */}
           {activeSection === "users" && <Users loggedInUsers={loggedInUsers} />}
-
           {activeSection === "orders" && <AdminOrders />}
-
-          {activeSection === "Feedback" && (
-            <div className="bg-white p-6 rounded-xl shadow">
-              <h2 className="text-2xl font-bold mb-4">Feedback Section</h2>
-              {/* Feedback content */}
-            </div>
-          )}
+          {activeSection === "outOfStock" && <OutOfStockProducts products={products} />}
         </main>
       </div>
     </div>

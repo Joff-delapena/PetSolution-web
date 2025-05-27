@@ -13,7 +13,7 @@
     addDoc,
   } from "firebase/firestore";
   import { useAuth } from "../Context/AuthContext";
-  import { useCart } from "../Context/CartContext";
+  import { useCart } from "../Context/cartContext";
 
   const cancelReasons = [
     "Changed my mind",

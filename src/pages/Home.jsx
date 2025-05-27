@@ -4,7 +4,7 @@ import { db } from "../firebase";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { useCart } from "../Context/CartContext";
+import { useCart } from "../Context/cartContext";
 
 export default function NewArrivals() {
   const navigate = useNavigate();

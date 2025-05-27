@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { collection, getDocs, addDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import { useCart } from "../Context/CartContext";
+import { useCart } from "../Context/cartContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
@@ -20,19 +20,21 @@ const Shop = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
-  // Fetch products from Firestore on mount
   useEffect(() => {
     const fetchProducts = async () => {
+      console.log("Shop: fetching products...");
       try {
         const snap = await getDocs(collection(db, "products"));
-        const productsList = snap.docs.map(doc => {
+        if (snap.empty) {
+          console.log("Shop: no products found");
+        }
+        const productsList = snap.docs.map((doc) => {
           const data = doc.data();
           const feedbacks = data.feedbacks || [];
           const averageRating =
             feedbacks.length > 0
               ? feedbacks.reduce((sum, f) => sum + (f.rating || 0), 0) / feedbacks.length
               : 0;
-
           return {
             id: doc.id,
             ...data,
@@ -40,37 +42,39 @@ const Shop = () => {
             reviewCount: feedbacks.length,
           };
         });
+        console.log("Shop: fetched products count:", productsList.length);
         setProducts(productsList);
         setFilteredProducts(productsList);
       } catch (err) {
-        console.error(err);
+        console.error("Shop: fetch error", err);
+        alert("Failed to fetch products from Firestore.");
       } finally {
         setLoading(false);
       }
     };
+
     fetchProducts();
   }, []);
 
-  // Filtering, sorting, and searching products
   useEffect(() => {
     let filtered = [...products];
 
     if (searchQuery) {
-      filtered = filtered.filter(p =>
+      filtered = filtered.filter((p) =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     if (categoryFilter !== "all") {
-      filtered = filtered.filter(p => p.category === categoryFilter);
+      filtered = filtered.filter((p) => p.category === categoryFilter);
     }
 
     if (priceFilter === "low") {
-      filtered = filtered.filter(p => p.price <= 500);
+      filtered = filtered.filter((p) => p.price <= 500);
     } else if (priceFilter === "mid") {
-      filtered = filtered.filter(p => p.price > 500 && p.price <= 1000);
+      filtered = filtered.filter((p) => p.price > 500 && p.price <= 1000);
     } else if (priceFilter === "high") {
-      filtered = filtered.filter(p => p.price > 1000);
+      filtered = filtered.filter((p) => p.price > 1000);
     }
 
     if (sortOption === "price-asc") {
@@ -86,7 +90,6 @@ const Shop = () => {
     setFilteredProducts(filtered);
   }, [searchQuery, products, categoryFilter, priceFilter, sortOption]);
 
-  // Handle Add to Cart action
   const handleAddToCart = (e, product) => {
     e.preventDefault();
     addToCart(product);
@@ -94,7 +97,6 @@ const Shop = () => {
     setTimeout(() => setNotification(""), 3000);
   };
 
-  // Handle Buy Now action
   const handleBuyNow = async (e, product) => {
     e.preventDefault();
 
@@ -126,7 +128,6 @@ const Shop = () => {
 
       await addDoc(ordersRef, newOrder);
 
-      // Update localStorage purchase history
       const existingHistory = JSON.parse(localStorage.getItem("purchaseHistory")) || [];
       const newEntry = {
         ...product,
@@ -136,7 +137,6 @@ const Shop = () => {
       };
       localStorage.setItem("purchaseHistory", JSON.stringify([...existingHistory, newEntry]));
 
-      // Save selected cart items to localStorage for payment page
       localStorage.setItem(
         "selectedCartItems",
         JSON.stringify([{ ...product, quantity: 1, image: product.images?.[0] || "" }])
@@ -149,8 +149,7 @@ const Shop = () => {
     }
   };
 
-  // Get unique product categories for filter dropdown
-  const uniqueCategories = [...new Set(products.map(p => p.category))];
+  const uniqueCategories = [...new Set(products.map((p) => p.category))];
 
   if (loading) {
     return (
@@ -185,17 +184,17 @@ const Shop = () => {
           <input
             type="text"
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search products..."
             className="w-full px-4 py-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
           <select
             value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
+            onChange={(e) => setCategoryFilter(e.target.value)}
             className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
           >
             <option value="all">All Categories</option>
-            {uniqueCategories.map(cat => (
+            {uniqueCategories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
               </option>
@@ -203,7 +202,7 @@ const Shop = () => {
           </select>
           <select
             value={priceFilter}
-            onChange={e => setPriceFilter(e.target.value)}
+            onChange={(e) => setPriceFilter(e.target.value)}
             className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
           >
             <option value="all">All Prices</option>
@@ -213,7 +212,7 @@ const Shop = () => {
           </select>
           <select
             value={sortOption}
-            onChange={e => setSortOption(e.target.value)}
+            onChange={(e) => setSortOption(e.target.value)}
             className="w-full p-3 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-400"
           >
             <option value="none">Sort By</option>
@@ -226,7 +225,7 @@ const Shop = () => {
 
         {/* Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredProducts.map(product => (
+          {filteredProducts.map((product) => (
             <div
               key={product.id}
               className="bg-white rounded-xl shadow-md overflow-hidden flex flex-col hover:shadow-xl transition-shadow"
@@ -243,9 +242,9 @@ const Shop = () => {
                   {product.name}
                 </h3>
 
-                {/* Rating Stars */}
+                {/* Rating */}
                 <div className="flex items-center gap-1 mb-2">
-                  {[1, 2, 3, 4, 5].map(star => (
+                  {[1, 2, 3, 4, 5].map((star) => (
                     <svg
                       key={star}
                       className={`w-5 h-5 ${
@@ -280,21 +279,18 @@ const Shop = () => {
                   </span>
                 </p>
 
-                <div className="mt-auto flex space-x-3">
+                <div className="mt-auto flex gap-3">
                   <button
-                    onClick={e => handleAddToCart(e, product)}
-                    disabled={product.quantity <= 0}
-                    className={`flex-1 py-3 rounded-lg text-white font-semibold transition ${
-                      product.quantity > 0
-                        ? "bg-orange-500 hover:bg-orange-600"
-                        : "bg-gray-300 cursor-not-allowed"
-                    }`}
+                    onClick={(e) => handleAddToCart(e, product)}
+                    disabled={product.quantity === 0}
+                    className="flex-grow py-2 px-3 rounded-md bg-orange-500 text-white hover:bg-orange-600 transition disabled:bg-gray-400"
                   >
                     Add to Cart
                   </button>
                   <button
-                    onClick={e => handleBuyNow(e, product)}
-                    className="flex-1 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition"
+                    onClick={(e) => handleBuyNow(e, product)}
+                    disabled={product.quantity === 0}
+                    className="py-2 px-3 rounded-md bg-green-600 text-white hover:bg-green-700 transition disabled:bg-gray-400"
                   >
                     Buy Now
                   </button>
@@ -302,6 +298,11 @@ const Shop = () => {
               </div>
             </div>
           ))}
+          {filteredProducts.length === 0 && (
+            <p className="col-span-full text-center text-gray-500 text-lg">
+              No products found matching your criteria.
+            </p>
+          )}
         </div>
       </main>
 

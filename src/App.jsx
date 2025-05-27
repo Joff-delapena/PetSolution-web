@@ -10,22 +10,23 @@ import ProductDetail from "./pages/ProductDetail";
 import Payment from "./pages/Payment";
 import ThankYou from "./pages/ThankYou";
 import PurchaseHistory from "./pages/PurchaseHistory";
-import Feedback from "./components/Feedback";
+// import Feedback from "./components/Feedback";
 
-import AdminOrders from "./Admin/AdminOrders"; 
+import AdminOrders from "./Admin/AdminOrders";
 import Profile from "./Admin/Profile";
 import AdminDashboard from "./Admin/Dashboard";
 import Product from "./Admin/Product";
 import Users from "./Admin/Users";
-import FeedbackList from "./Admin/FeedbackList";
+import OutOfStock from "./Admin/OutOfStock";
+// import FeedbackList from "./Admin/FeedbackList";
 
-import { CartProvider } from "./Context/CartContext";
+import { CartProvider } from "./Context/cartContext";
 import PrivateRoute from "./components/PrivateRoute";
 import Logout from "./components/Logout";
 
 function App() {
   return (
-    <CartProvider>
+  
       <Router>
         <Routes>
           {/* Public routes */}
@@ -39,9 +40,8 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/logout" element={<Logout />} />
           <Route path="/purchase-history" element={<PurchaseHistory />} />
-          <Route path="/feedback" element={<Feedback />} />
+          {/* <Route path="/feedback" element={<Feedback />} /> */}
 
-        
           {/* Admin-only routes */}
           <Route
             path="/admin"
@@ -82,15 +82,23 @@ function App() {
                 <AdminOrders />
               </PrivateRoute>
             }
-          />
+            />
           <Route
+            path="/admin/OutOfStock"
+            element={
+              <PrivateRoute adminOnly={true}>
+                <OutOfStock />
+              </PrivateRoute>
+            }
+          />
+          {/* <Route
             path="/admin/feedback"
             element={
               <PrivateRoute adminOnly={true}>
                 <FeedbackList />
               </PrivateRoute>
             }
-          />
+          /> */}
 
           {/* 404 fallback */}
           <Route
@@ -103,7 +111,7 @@ function App() {
           />
         </Routes>
       </Router>
-    </CartProvider>
+    
   );
 }
 

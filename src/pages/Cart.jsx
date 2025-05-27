@@ -1,19 +1,22 @@
+// src/pages/Cart.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { useCart } from "../Context/CartContext";
+import { useCart } from "../Context/cartContext";
 import { useAuth } from "../Context/AuthContext";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../firebase";
 
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, checkout } = useCart();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [selectedItems, setSelectedItems] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const isSelected = (id) => selectedItems.includes(id);
 
+  // Toggle select all items in cart
   const toggleSelectAll = () => {
     if (selectedItems.length === cartItems.length) {
       setSelectedItems([]);
@@ -22,57 +25,69 @@ const Cart = () => {
     }
   };
 
+  // Toggle selection of a single item
   const toggleSelection = (id) => {
     setSelectedItems((prev) =>
-      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+      prev.includes(id)
+        ? prev.filter((itemId) => itemId !== id)
+        : [...prev, id]
     );
   };
 
+  // Remove item from cart and selection list
   const handleRemoveItem = (id) => {
     removeFromCart(id);
     setSelectedItems((prev) => prev.filter((itemId) => itemId !== id));
   };
 
+  // Increase or decrease quantity, remove if quantity falls below 1
   const handleQuantityChange = (item, action) => {
     if (action === "increase") {
       updateQuantity(item.id, 1);
     } else if (action === "decrease") {
-      updateQuantity(item.id, -1);
+      if (item.quantity === 1) {
+        // If quantity is 1, removing the item
+        handleRemoveItem(item.id);
+      } else {
+        updateQuantity(item.id, -1);
+      }
     }
   };
 
+  // Calculate total price for selected items
   const selectedTotal = cartItems
     .filter((item) => selectedItems.includes(item.id))
     .reduce((total, item) => total + item.price * item.quantity, 0);
 
+  // Place order and navigate to payment
   const handleCheckout = async () => {
-    if (!currentUser) {
-      alert("Please sign in to checkout.");
-      return;
-    }
-    if (selectedItems.length === 0) {
-      alert("Please select at least one item.");
-      return;
-    }
+    const selectedCartItems = cartItems.filter((item) =>
+      selectedItems.includes(item.id)
+    );
 
-    setIsProcessing(true);
+    const total = selectedCartItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+
     try {
-      // Call checkout from context - it handles order creation, stock update, cart update
-      await checkout(selectedItems);
+      await addDoc(collection(db, "orders"), {
+        items: selectedCartItems,
+        total,
+        status: "To Pay",
+        userId: currentUser?.uid || null,
+        timestamp: serverTimestamp(),
+      });
 
-      // Save selected items locally if needed (for payment page)
-      const selectedCartItems = cartItems.filter((item) =>
-        selectedItems.includes(item.id)
+      localStorage.setItem(
+        "selectedCartItems",
+        JSON.stringify(selectedCartItems)
       );
-      localStorage.setItem("selectedCartItems", JSON.stringify(selectedCartItems));
-
-      // Navigate to payment page
+      checkout(selectedItems);
       navigate("/payment");
     } catch (error) {
-      console.error("Checkout failed:", error);
+      console.error("Error saving order:", error);
       alert("Failed to place order. Please try again.");
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -82,7 +97,9 @@ const Cart = () => {
       <div className="max-w-7xl mx-auto p-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-5xl font-extrabold text-[#FF9500]">Your Shopping Cart</h1>
+            <h1 className="text-5xl font-extrabold text-[#FF9500]">
+              Your Shopping Cart
+            </h1>
             <p className="mt-2 text-lg text-gray-600">
               {cartItems.length === 0
                 ? "Your cart is empty. Start shopping now!"
@@ -143,14 +160,22 @@ const Cart = () => {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
-                  <p className="text-sm text-gray-500">₱{item.price}</p>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    {item.name}
+                  </h3>
+                  <p className="text-sm text-gray-500">₱{item.price.toFixed(2)}</p>
                 </div>
 
                 <div className="sm:col-span-1 flex items-center justify-center gap-4">
                   <button
-                    className="px-4 py-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-all"
+                    className={`px-4 py-2 rounded-full transition-all ${
+                      item.quantity === 1
+                        ? "bg-gray-300 cursor-not-allowed"
+                        : "bg-gray-200 hover:bg-gray-300"
+                    }`}
                     onClick={() => handleQuantityChange(item, "decrease")}
+                    disabled={item.quantity === 1}
+                    aria-label="Decrease quantity"
                   >
                     −
                   </button>
@@ -158,6 +183,7 @@ const Cart = () => {
                   <button
                     className="px-4 py-2 bg-gray-200 rounded-full hover:bg-gray-300 transition-all"
                     onClick={() => handleQuantityChange(item, "increase")}
+                    aria-label="Increase quantity"
                   >
                     +
                   </button>
@@ -184,10 +210,10 @@ const Cart = () => {
                 </p>
                 <button
                   className="bg-green-500 text-white text-lg px-8 py-3 rounded-lg hover:bg-green-600 transition-all disabled:opacity-50"
-                  disabled={selectedItems.length === 0 || isProcessing}
+                  disabled={selectedItems.length === 0}
                   onClick={handleCheckout}
                 >
-                  {isProcessing ? "Processing..." : "Proceed to Checkout"}
+                  Proceed to Checkout
                 </button>
               </div>
             </div>

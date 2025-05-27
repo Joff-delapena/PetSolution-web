@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
-import { CartProvider } from './Context/CartContext'; // fixed casing in import path
+import { CartProvider } from './Context/cartContext'; // fixed casing in import path
 import { AuthProvider } from './Context/AuthContext'; // fixed casing in import path
 
 // Create root using React 18 API

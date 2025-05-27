@@ -9,7 +9,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { useCart } from "../Context/CartContext";
+import { useCart } from "../Context/cartContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { getAuth } from "firebase/auth";

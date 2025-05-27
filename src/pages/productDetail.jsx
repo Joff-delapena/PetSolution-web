@@ -10,7 +10,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { useCart } from "../Context/CartContext";
+import { useCart } from "../Context/cartContext";
 import Feedback from "../components/Feedback";
 
 export default function ProductDetail() {

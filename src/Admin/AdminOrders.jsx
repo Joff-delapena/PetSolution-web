@@ -13,9 +13,10 @@ import { db } from "../firebase";
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState("All");
 
   const statusOptions = useMemo(
-    () => ["Pending", "Processing", "On Delivery", "Delivered", "Cancelled"],
+    () => ["All", "Pending", "Processing", "On Delivery", "Delivered", "Cancelled"],
     []
   );
 
@@ -91,11 +92,33 @@ const AdminOrders = () => {
     });
   };
 
+  // Filter orders based on filterStatus
+  const filteredOrders = useMemo(() => {
+    if (filterStatus === "All") return orders;
+    return orders.filter((order) => order.status === filterStatus);
+  }, [orders, filterStatus]);
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-4xl font-extrabold text-[#FF9500] mb-10 tracking-wide">
+      <h1 className="text-4xl font-extrabold text-[#FF9500] mb-6 tracking-wide">
         Orders Management
       </h1>
+
+      {/* Filter Dropdown */}
+      <div className="flex justify-end mb-4">
+        <label className="mr-2 text-gray-700 font-semibold">Filter by Status:</label>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9500]"
+        >
+          {statusOptions.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {loading ? (
         <div className="flex justify-center items-center py-24">
@@ -120,7 +143,7 @@ const AdminOrders = () => {
             ></path>
           </svg>
         </div>
-      ) : orders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <p className="text-center text-gray-500 text-lg mt-20">No orders found.</p>
       ) : (
         <div className="overflow-x-auto rounded-lg shadow-lg border border-gray-300">
@@ -137,7 +160,7 @@ const AdminOrders = () => {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => {
+              {filteredOrders.map((order) => {
                 const status = order.status || "Pending";
                 return (
                   <tr
@@ -169,7 +192,9 @@ const AdminOrders = () => {
                     <td className="py-3 px-6 font-semibold text-gray-800">
                       ₱{order.total?.toFixed(2) || "0.00"}
                     </td>
-                    <td className="py-3 px-6 text-gray-600">{formatDate(order.timestamp)}</td>
+                    <td className="py-3 px-6 text-gray-600">
+                      {formatDate(order.timestamp)}
+                    </td>
                     <td className="py-3 px-6 flex items-center space-x-2">
                       <select
                         value={status}
@@ -178,11 +203,13 @@ const AdminOrders = () => {
                         }
                         className="border border-gray-300 rounded px-2 py-1 text-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FF9500] transition"
                       >
-                        {statusOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
+                        {statusOptions
+                          .filter((option) => option !== "All")
+                          .map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
                       </select>
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-xs font-semibold select-none ${
